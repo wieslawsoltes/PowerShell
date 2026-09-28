@@ -637,11 +637,15 @@ namespace Microsoft.PowerShell
             // Sync access so that we don't conflict on color settings if called from multiple threads.
             lock (_instanceLock)
             {
+#if !UNIX
+                _rawui.SetColors(foregroundColor, backgroundColor, out ConsoleColor fg, out ConsoleColor bg);
+#else
                 ConsoleColor fg = RawUI.ForegroundColor;
                 ConsoleColor bg = RawUI.BackgroundColor;
 
                 RawUI.ForegroundColor = foregroundColor;
                 RawUI.BackgroundColor = backgroundColor;
+#endif
 
                 try
                 {
@@ -649,8 +653,12 @@ namespace Microsoft.PowerShell
                 }
                 finally
                 {
+#if !UNIX
+                    _rawui.SetColors(fg, bg, out _, out _);
+#else
                     RawUI.ForegroundColor = fg;
                     RawUI.BackgroundColor = bg;
+#endif
                 }
             }
         }
@@ -817,11 +825,15 @@ namespace Microsoft.PowerShell
             // Sync access so that we don't conflict on color settings if called from multiple threads.
             lock (_instanceLock)
             {
+#if !UNIX
+                _rawui.SetColors(foregroundColor, backgroundColor, out ConsoleColor fg, out ConsoleColor bg);
+#else
                 ConsoleColor fg = RawUI.ForegroundColor;
                 ConsoleColor bg = RawUI.BackgroundColor;
 
                 RawUI.ForegroundColor = foregroundColor;
                 RawUI.BackgroundColor = backgroundColor;
+#endif
 
                 try
                 {
@@ -829,8 +841,12 @@ namespace Microsoft.PowerShell
                 }
                 finally
                 {
+#if !UNIX
+                    _rawui.SetColors(fg, bg, out _, out _);
+#else
                     RawUI.ForegroundColor = fg;
                     RawUI.BackgroundColor = bg;
+#endif
                 }
             }
         }

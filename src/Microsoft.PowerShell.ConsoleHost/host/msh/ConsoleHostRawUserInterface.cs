@@ -155,6 +155,35 @@ namespace Microsoft.PowerShell
         }
 
         /// <summary>
+        /// Sets both colors together and returns the previous colors. Non-color attributes
+        /// are taken from the current buffer, including when restoring colors after output.
+        /// </summary>
+        internal void SetColors(
+            ConsoleColor foregroundColor,
+            ConsoleColor backgroundColor,
+            out ConsoleColor previousForeground,
+            out ConsoleColor previousBackground)
+        {
+            if (!ConsoleControl.IsConsoleColor(foregroundColor) || !ConsoleControl.IsConsoleColor(backgroundColor))
+            {
+                // Retain the individual setters' validation and partial-update behavior.
+                previousForeground = ForegroundColor;
+                previousBackground = BackgroundColor;
+                ForegroundColor = foregroundColor;
+                BackgroundColor = backgroundColor;
+                return;
+            }
+
+            ConsoleHandle handle = GetBufferInfo(out ConsoleControl.CONSOLE_SCREEN_BUFFER_INFO bufferInfo);
+            ConsoleControl.WORDToColor(bufferInfo.Attributes, out previousForeground, out previousBackground);
+
+            // Do not skip equal colors: VT output may have changed attributes that the
+            // legacy color bits cannot represent. Keep SetConsoleTextAttribute semantics.
+            WORD attributes = (WORD)((bufferInfo.Attributes & ~0xff) | (int)foregroundColor | ((int)backgroundColor << 4));
+            ConsoleControl.SetConsoleTextAttribute(handle, attributes);
+        }
+
+        /// <summary>
         /// See base class.
         /// </summary>
         /// <value></value>
