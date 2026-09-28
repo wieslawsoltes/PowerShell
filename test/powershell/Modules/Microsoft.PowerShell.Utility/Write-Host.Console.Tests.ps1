@@ -44,6 +44,33 @@ public static class WriteHostConsoleState
                 $raw.ForegroundColor = 'Yellow'
                 $raw.BackgroundColor = 'DarkBlue'
                 $original = [WriteHostConsoleState]::Attributes() -band 0xff
+                $defaultCases = 0
+                foreach ($explicitForeground in @($false, $true)) {
+                    foreach ($explicitBackground in @($false, $true)) {
+                        $parameters = @{}
+                        if ($explicitForeground) { $parameters.ForegroundColor = 'Cyan' }
+                        if ($explicitBackground) { $parameters.BackgroundColor = 'DarkRed' }
+                        $message = (Write-Host 'defaults' @parameters 6>&1).MessageData
+                        $expectedForeground = if ($explicitForeground) { 'Cyan' } else { 'Yellow' }
+                        $expectedBackground = if ($explicitBackground) { 'DarkRed' } else { 'DarkBlue' }
+                        if ($message.ForegroundColor -ne $expectedForeground -or $message.BackgroundColor -ne $expectedBackground) { throw 'Default color snapshot changed the information record' }
+                        $defaultCases++
+                    }
+                }
+                $pipelineRecords = @(& {
+                    'first'
+                    $raw.ForegroundColor = 'Red'
+                    $raw.BackgroundColor = 'Green'
+                    'second'
+                } | Write-Host 6>&1)
+                if ($pipelineRecords.Count -ne 2) { throw 'Missing pipeline information records' }
+                foreach ($record in $pipelineRecords) {
+                    if ($record.MessageData.ForegroundColor -ne 'Yellow' -or $record.MessageData.BackgroundColor -ne 'DarkBlue') { throw 'Defaults were not cached per cmdlet' }
+                }
+                $next = (Write-Host 'next invocation' 6>&1).MessageData
+                if ($next.ForegroundColor -ne 'Red' -or $next.BackgroundColor -ne 'Green') { throw 'Defaults were cached across invocations' }
+                $raw.ForegroundColor = 'Yellow'
+                $raw.BackgroundColor = 'DarkBlue'
                 $colorCases = 0
                 foreach ($foreground in 0..15) {
                     foreach ($background in 0..15) {
@@ -134,7 +161,7 @@ public static class WriteHostConsoleState
                     [int]$cell.BackgroundColor -ne (($beforePlainText -band 0xf0) -shr 4) -or
                     [WriteHostConsoleState]::Attributes() -ne $beforePlainText) { throw 'PlainText output changed colors or retained ANSI sequences' }
 
-                @{ColorCases=$colorCases; AnsiCases=$ansiCases; InvalidColors=$true; Information=$true; Transcript=$true; PlainText=$true} |
+                @{ColorCases=$colorCases; AnsiCases=$ansiCases; InvalidColors=$true; Information=$true; Transcript=$true; PlainText=$true; DefaultCases=$defaultCases; CachedDefaults=$true} |
                     ConvertTo-Json -Compress | Set-Content -LiteralPath $resultFile
             }
             catch {
@@ -142,9 +169,9 @@ public static class WriteHostConsoleState
                 exit 1
             }
         }
-        $script = '& {' + $child.ToString() + "} '" + $resultFile.Replace("'", "''") + "'"
-        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
-        $process = Start-Process (Join-Path $PSHOME 'pwsh.exe') -ArgumentList '-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',$encoded -WindowStyle Hidden -PassThru
+        $childFile = Join-Path $TestDrive 'console-child.ps1'
+        $child.ToString() | Set-Content -LiteralPath $childFile
+        $process = Start-Process (Join-Path $PSHOME 'pwsh.exe') -ArgumentList '-NoLogo','-NoProfile','-NonInteractive','-File',('"' + $childFile + '"'),('"' + $resultFile + '"') -WindowStyle Hidden -PassThru
         try {
             if (!$process.WaitForExit(60000)) {
                 $process.Kill()
@@ -178,5 +205,13 @@ public static class WriteHostConsoleState
 
     It 'preserves the PlainText rendering bypass' -Skip:(!$IsWindows) {
         $result.PlainText | Should -BeTrue
+    }
+
+    It 'resolves omitted and explicit colors in information records' -Skip:(!$IsWindows) {
+        $result.DefaultCases | Should -Be 4
+    }
+
+    It 'caches default colors per cmdlet rather than across invocations' -Skip:(!$IsWindows) {
+        $result.CachedDefaults | Should -BeTrue
     }
 }

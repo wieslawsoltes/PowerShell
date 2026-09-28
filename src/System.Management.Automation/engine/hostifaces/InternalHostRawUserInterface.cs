@@ -19,6 +19,23 @@ namespace System.Management.Automation.Internal.Host
             _parentHost = parentHost;
         }
 
+        /// <summary>
+        /// Reads a color pair only when the external host supports a combined snapshot.
+        /// Other hosts retain the individual property reads and their ordering.
+        /// </summary>
+        internal bool TryGetConsoleColors(out ConsoleColor foregroundColor, out ConsoleColor backgroundColor)
+        {
+            if (_externalRawUI is IConsoleColorSnapshotProvider provider)
+            {
+                provider.GetConsoleColors(out foregroundColor, out backgroundColor);
+                return true;
+            }
+
+            foregroundColor = default;
+            backgroundColor = default;
+            return false;
+        }
+
         internal
         void
         ThrowNotInteractive()

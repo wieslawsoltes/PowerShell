@@ -22,7 +22,7 @@ namespace Microsoft.PowerShell
     /// Implementation of RawConsole for powershell.
     /// </summary>
     internal sealed
-    class ConsoleHostRawUserInterface : System.Management.Automation.Host.PSHostRawUserInterface
+    class ConsoleHostRawUserInterface : System.Management.Automation.Host.PSHostRawUserInterface, IConsoleColorSnapshotProvider
     {
         /// <summary>
         /// </summary>
@@ -152,6 +152,15 @@ namespace Microsoft.PowerShell
                     throw PSTraceSource.NewArgumentException("value", ConsoleHostRawUserInterfaceStrings.InvalidConsoleColorError);
                 }
             }
+        }
+
+        /// <summary>
+        /// Reads both colors from the same current screen-buffer snapshot.
+        /// </summary>
+        void IConsoleColorSnapshotProvider.GetConsoleColors(out ConsoleColor foregroundColor, out ConsoleColor backgroundColor)
+        {
+            GetBufferInfo(out ConsoleControl.CONSOLE_SCREEN_BUFFER_INFO bufferInfo);
+            ConsoleControl.WORDToColor(bufferInfo.Attributes, out foregroundColor, out backgroundColor);
         }
 
         /// <summary>

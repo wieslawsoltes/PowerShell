@@ -111,6 +111,7 @@ namespace Microsoft.PowerShell.Commands
 
             try
             {
+                CacheConsoleColorSnapshot();
                 informationMessage.ForegroundColor = ForegroundColor;
                 informationMessage.BackgroundColor = BackgroundColor;
             }
